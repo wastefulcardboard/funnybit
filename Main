@@ -1,0 +1,258 @@
+import time
+import random
+from yolobit import *
+button_a.on_pressed = None
+button_b.on_pressed = None
+button_a.on_pressed_ab = button_b.on_pressed_ab = -1
+
+screen = []
+color_pallete = {
+  1: "#FF0000" ,#red
+  2:"#FF8800" ,#orange
+  3:"#FFFF00",#yellow 
+  4:"#00FF00",#green
+  5:"#0000FF" ,#blue
+  6:'#301934' ,#dark_purple
+  7:'#800080' ,#purple
+  8:"#FFFFFF" ,#white 
+  0:"#000000" ,#black 
+}
+
+
+
+office = [[0,0,0,0,0],
+          [0,0,0,0,0],
+          [0,0,0,0,0],
+          [0,0,0,0,0],
+          [0,0,0,0,0]
+]
+
+def matrix_to_screen(matrix):
+  for y in range(5):
+    for x in range(5):
+      color = matrix[y][x]
+
+      if isinstance(color, int):
+          display.set_pixel(x, y, color_pallete[color])
+      else:
+          display.set_pixel(x, y, color)
+    
+  
+
+
+
+
+
+tick_rate = 1000
+
+
+class exoskeleton:
+  def __init__(self,color_id, max_state,frequency):
+    
+    
+    self.state = 0
+    self.color_id = color_id
+    self.max_state = max_state
+    self.weight = 0
+    self.frequency = frequency
+    
+  def increment_state_by_one(self, weight, frequency):
+    if random.randint(0,30 - weight) <= frequency:
+      self.weight = 0
+      return 1
+    self.weight = min(weight + 1, 20)
+    
+    
+    return 0
+
+  
+
+def assign_to_map(map_var, color_id, coords):
+    x, y = coords
+    map_var[y][x] = color_id
+
+
+
+
+
+
+class freddy_bp(exoskeleton):
+  freddy_freddles_coords = [[2,4],[1,4],[3,4]]
+  def update(self):
+    if self.state == self.max_state:
+      game_over()
+      return
+    self.state += self.increment_state_by_one(self.weight, self.frequency)
+    for i in self.freddy_freddles_coords[:self.state:]:
+      assign_to_map(screen, self.color_id, i)
+      
+      
+class bonnie_bp(exoskeleton):
+  bonnie_Schrodingers_coords = [[2,0],[1,0],[1,1],[1,2],[1,3],[2,3]]
+  def update(self):
+    if self.state == self.max_state and left_door_state == 1:
+      self.state = 0
+      return
+    
+    if self.state == self.max_state:
+      game_over()
+      return
+    self.state += self.increment_state_by_one(self.weight, self.frequency)
+    
+    assign_to_map(screen, self.color_id, self.bonnie_Schrodingers_coords[self.state])
+    
+    
+class chica_bp(exoskeleton):
+  chica_Schrodingers_coords = [[3,0],[4,0],[4,1],[4,2],[4,3],[3,3]]
+  def update(self):
+    if self.state == self.max_state and right_door_state == 1:
+      self.state = 0
+      return
+    if self.state == self.max_state:
+      game_over()
+      return
+    self.state += self.increment_state_by_one(self.weight, self.frequency)
+    
+    assign_to_map(screen, self.color_id, self.chica_Schrodingers_coords[self.state])
+    
+class foxy_bp(exoskeleton):
+  foxy_the_chameleon = [ '#000000','#440000','#880000','#bb0000','#ff0000']
+  foxy_closet = [2,2]
+  def update(self):
+    if light_strenght > 0:
+      
+      return
+    if self.state == self.max_state:
+      game_over()
+      return
+    self.state += self.increment_state_by_one(self.weight, self.frequency)
+    
+    assign_to_map(screen, self.foxy_the_chameleon[self.state], self.foxy_closet)
+
+
+
+
+animotronics = [freddy_bp(color_id = 2,max_state = 4, frequency = 5),
+                bonnie_bp(color_id = 5,max_state = 5, frequency = 5),
+                chica_bp(color_id = 3,max_state = 5, frequency = 5),
+                foxy_bp(color_id = 1,max_state = 5, frequency = 5),]
+
+
+
+
+
+
+
+
+left_door_coords = [1,3]
+right_door_coords = [3,3]
+left_door_state =0
+right_door_state =0
+
+
+
+max_battery = 128
+battery = 128
+battery_recovery = 5
+battery_depletion = 5
+
+doors_color = "#808080"
+
+def doors():
+  global left_door_state, right_door_state, battery
+  left_door_state =0
+  right_door_state =0
+  
+  
+  if button_a.is_pressed() and not button_b.is_pressed() and not system_disabled  :
+    if animotronics[1].state == 5:
+      return
+    left_door_state =1
+    assign_to_map(screen,doors_color,left_door_coords)
+    battery -= battery_depletion
+    battery = max(0,battery)
+    
+  if button_b.is_pressed() and not button_a.is_pressed() and not system_disabled :
+    if animotronics[2].state == 5:
+      return
+    right_door_state =1
+    assign_to_map(screen,doors_color,right_door_coords)
+    battery -= battery_depletion
+    battery = max(0,battery)
+    
+
+light_color = "#D3D3D3"
+light_drain = 50
+light_duration = 10 #ticks
+light_strenght = 0
+light_strenght_loss = 1
+
+def lights():
+  global light_strenght, battery
+  if button_b.is_pressed() and button_a.is_pressed() and not system_disabled and light_strenght ==0:
+    animotronics[3].state = 0
+    assign_to_map(screen, light_color, [2, 2])
+    
+    light_strenght = light_duration
+    battery -= light_drain
+    battery = max(0,battery)
+    
+    return
+  light_strenght -= light_strenght_loss
+  light_strenght = max(0,light_strenght)
+    
+    
+system_disabled = False
+def system():
+  global system_disabled, battery
+  if battery == 0:
+    system_disabled = True
+  battery += battery_recovery * not (button_a.is_pressed() or button_b.is_pressed())
+  battery = min(max_battery, battery)
+  if system_disabled == True and battery > max_battery/2:
+    system_disabled = False
+    
+def shakes():
+  if accelerometer.is_gesture("shake"): # shake", "tapped", "tilt_up", "tilt_down", "tilt_left", "tilt_right", "face_up", "face_down"
+
+    animotronics[0].state  -= 1
+    animotronics[0].state  = max(0, animotronics[0].state )
+    
+def game_advance():
+  global screen
+  
+  screen = [row[:] for row in office]
+  doors()
+  lights()
+  shakes()
+  system()
+  
+  for i in animotronics:
+    i.update()
+  matrix_to_screen(screen,)
+
+
+def game_over():
+  global stop
+  
+  display.scroll("game over", color=Red, delay=200, wait=True)
+  stop = True
+  
+
+
+stop = False
+def main():
+
+  while True:
+    time.sleep_ms(tick_rate)
+    game_advance()
+    if stop:
+      break
+    
+
+
+
+main()
+
+  
+  
