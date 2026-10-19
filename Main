@@ -5,7 +5,7 @@ button_a.on_pressed = None
 button_b.on_pressed = None
 button_a.on_pressed_ab = button_b.on_pressed_ab = -1
 
-screen = []
+
 color_pallete = {
   1: "#FF0000" ,#red
   2:"#FF8800" ,#orange
@@ -21,11 +21,12 @@ color_pallete = {
 
 
 office = [[0,0,0,0,0],
+          [0,7,7,7,0],
+          [0,7,0,7,0],
           [0,0,0,0,0],
-          [0,0,0,0,0],
-          [0,0,0,0,0],
-          [0,0,0,0,0]
+          [7,0,0,0,7]
 ]
+screen = [row[:] for row in office]
 
 def matrix_to_screen(matrix):
   for y in range(5):
@@ -43,7 +44,7 @@ def matrix_to_screen(matrix):
 
 
 
-tick_rate = 1000
+tick_rate = 200
 
 
 class exoskeleton:
@@ -56,11 +57,11 @@ class exoskeleton:
     self.weight = 0
     self.frequency = frequency
     
-  def increment_state_by_one(self, weight, frequency):
-    if random.randint(0,30 - weight) <= frequency:
+  def increment_state_by_one(self):
+    if random.randint(0,30 - self.weight) <= self.frequency:
       self.weight = 0
       return 1
-    self.weight = min(weight + 1, 20)
+    self.weight = min(self.weight + 1, 20)
     
     
     return 0
@@ -82,7 +83,7 @@ class freddy_bp(exoskeleton):
     if self.state == self.max_state:
       game_over()
       return
-    self.state += self.increment_state_by_one(self.weight, self.frequency)
+    self.state += self.increment_state_by_one()
     for i in self.freddy_freddles_coords[:self.state:]:
       assign_to_map(screen, self.color_id, i)
       
@@ -97,7 +98,7 @@ class bonnie_bp(exoskeleton):
     if self.state == self.max_state:
       game_over()
       return
-    self.state += self.increment_state_by_one(self.weight, self.frequency)
+    self.state += self.increment_state_by_one()
     
     assign_to_map(screen, self.color_id, self.bonnie_Schrodingers_coords[self.state])
     
@@ -108,10 +109,13 @@ class chica_bp(exoskeleton):
     if self.state == self.max_state and right_door_state == 1:
       self.state = 0
       return
+    if animotronics[1].state == 4 and animotronics[2].state == 4:
+      return
+    
     if self.state == self.max_state:
       game_over()
       return
-    self.state += self.increment_state_by_one(self.weight, self.frequency)
+    self.state += self.increment_state_by_one()
     
     assign_to_map(screen, self.color_id, self.chica_Schrodingers_coords[self.state])
     
@@ -125,17 +129,17 @@ class foxy_bp(exoskeleton):
     if self.state == self.max_state:
       game_over()
       return
-    self.state += self.increment_state_by_one(self.weight, self.frequency)
+    self.state += self.increment_state_by_one()
     
     assign_to_map(screen, self.foxy_the_chameleon[self.state], self.foxy_closet)
 
 
 
 
-animotronics = [freddy_bp(color_id = 2,max_state = 4, frequency = 5),
+animotronics = [freddy_bp(color_id = 2,max_state = 3, frequency = 5),
                 bonnie_bp(color_id = 5,max_state = 5, frequency = 5),
                 chica_bp(color_id = 3,max_state = 5, frequency = 5),
-                foxy_bp(color_id = 1,max_state = 5, frequency = 5),]
+                foxy_bp(color_id = 1,max_state = 4, frequency = 5),]
 
 
 
@@ -164,26 +168,22 @@ def doors():
   right_door_state =0
   
   
-  if button_a.is_pressed() and not button_b.is_pressed() and not system_disabled  :
-    if animotronics[1].state == 5:
-      return
-    left_door_state =1
-    assign_to_map(screen,doors_color,left_door_coords)
-    battery -= battery_depletion
-    battery = max(0,battery)
-    
-  if button_b.is_pressed() and not button_a.is_pressed() and not system_disabled :
-    if animotronics[2].state == 5:
-      return
-    right_door_state =1
-    assign_to_map(screen,doors_color,right_door_coords)
-    battery -= battery_depletion
-    battery = max(0,battery)
+  if button_a.is_pressed() and not button_b.is_pressed() and not system_disabled:
+      if animotronics[1].state != 5:
+          left_door_state = 1
+          assign_to_map(screen, doors_color, left_door_coords)
+          battery = max(0, battery - battery_depletion)
+
+  elif button_b.is_pressed() and not button_a.is_pressed() and not system_disabled:
+      if animotronics[2].state != 5:
+          right_door_state = 1
+          assign_to_map(screen, doors_color, right_door_coords)
+          battery = max(0, battery - battery_depletion)
     
 
 light_color = "#D3D3D3"
 light_drain = 50
-light_duration = 10 #ticks
+light_duration = 5 #ticks
 light_strenght = 0
 light_strenght_loss = 1
 
@@ -203,12 +203,24 @@ def lights():
     
     
 system_disabled = False
+battery_state = ["#44ce1b","#bbdb44","#f7e379","#f2a134","#e51f1f"]
+battery_coords = [2,0]
+battery_state_length = max_battery/len(battery_state)
+
+
 def system():
   global system_disabled, battery
   if battery == 0:
     system_disabled = True
+
+
   battery += battery_recovery * not (button_a.is_pressed() or button_b.is_pressed())
   battery = min(max_battery, battery)
+  
+  index = min(len(battery_state) - 1,
+    int(battery // battery_state_length))
+  assign_to_map(screen,battery_state[index],battery_coords)
+  
   if system_disabled == True and battery > max_battery/2:
     system_disabled = False
     
@@ -218,6 +230,8 @@ def shakes():
     animotronics[0].state  -= 1
     animotronics[0].state  = max(0, animotronics[0].state )
     
+    
+
 def game_advance():
   global screen
   
@@ -228,6 +242,8 @@ def game_advance():
   system()
   
   for i in animotronics:
+    if stop:
+      break
     i.update()
   matrix_to_screen(screen,)
 
@@ -238,7 +254,30 @@ def game_over():
   display.scroll("game over", color=Red, delay=200, wait=True)
   stop = True
   
+def debug_game():
+    #print("--- GAME DEBUG ---")
 
+    #print("Battery:", battery)
+    #print("System disabled:", system_disabled)
+
+    #print("Button A:", button_a.is_pressed())
+    #print("Button B:", button_b.is_pressed())
+
+    #print("Left door:", left_door_state)
+    #print("Right door:", right_door_state)
+
+    #print("Light strength:", light_strenght)
+
+    #print("Freddy state/weight:",
+          animotronics[0].state, animotronics[0].weight)
+    #print("Bonnie state/weight:",
+          animotronics[1].state, animotronics[1].weight)
+    #print("Chica state/weight:",
+          animotronics[2].state, animotronics[2].weight)
+    #print("Foxy state/weight:",
+          animotronics[3].state, animotronics[3].weight)
+
+    #print("Stop:", stop)
 
 stop = False
 def main():
@@ -246,6 +285,7 @@ def main():
   while True:
     time.sleep_ms(tick_rate)
     game_advance()
+    debug_game()
     if stop:
       break
     
